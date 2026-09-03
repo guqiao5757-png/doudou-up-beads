@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://guqiao5757-png.github.io/doudou-up-beads/sitemap.xml
