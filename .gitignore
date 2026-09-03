@@ -1,0 +1,18 @@
+# 本地运行产生的点赞计数数据（非源码，不入库）
+like-count.json
+
+# 临时调试 / 探针脚本
+_probe_*.js
+
+# 发布用临时脚本与访问令牌（含凭证，绝不能入库）
+_oauth*.js
+_oauth_token
+_oauth_state.json
+_publish.js
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

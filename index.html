@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>doudou UP</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ 顶部栏 ============ -->
+<header class="app-header">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">
+      <svg class="logo-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+        <rect x="4" y="2" width="8" height="2" fill="#8B279B"/>
+        <rect x="3" y="4" width="10" height="7" fill="#8B279B"/>
+        <rect x="4" y="11" width="8" height="2" fill="#8B279B"/>
+        <rect x="6" y="13" width="4" height="1" fill="#8B279B"/>
+        <rect x="5" y="3" width="2" height="2" fill="#35E352"/>
+        <rect x="4" y="5" width="1" height="3" fill="#35E352"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <h1>doudou UP</h1>
+      <p>Drive your ideas into blueprint</p>
+    </div>
+  </div>
+
+  <div class="like-box" id="likeBox">
+    <button class="like-btn" id="btnLike" title="给作者点赞" data-tip="给作者点赞" aria-label="给作者点赞">
+      <svg class="like-heart" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+        <rect x="4" y="1" width="2" height="1"/>
+        <rect x="10" y="1" width="2" height="1"/>
+        <rect x="3" y="2" width="4" height="1"/>
+        <rect x="9" y="2" width="4" height="1"/>
+        <rect x="2" y="3" width="12" height="1"/>
+        <rect x="1" y="4" width="14" height="1"/>
+        <rect x="1" y="5" width="14" height="1"/>
+        <rect x="2" y="6" width="12" height="1"/>
+        <rect x="3" y="7" width="10" height="1"/>
+        <rect x="4" y="8" width="8" height="1"/>
+        <rect x="5" y="9" width="6" height="1"/>
+        <rect x="6" y="10" width="4" height="1"/>
+        <rect x="7" y="11" width="2" height="1"/>
+      </svg>
+    </button>
+    <span class="like-text"><b id="likeCount">—</b> 人给作者点赞</span>
+  </div>
+
+  <div class="header-actions">
+    <span class="size-badge" id="sizeBadge">60 × 60</span>
+    <button class="btn btn-danger" id="btnClear" title="清空整张画布（可用撤销恢复）">清空画布</button>
+    <button class="btn btn-icon" id="btnUndo" title="撤销 (Ctrl+Z)" aria-label="撤销" disabled>
+      <svg class="ic-svg" viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true">
+        <rect x="3" y="3" width="8" height="2"/>
+        <rect x="3" y="11" width="8" height="2"/>
+        <rect x="3" y="3" width="2" height="10"/>
+        <rect x="1" y="7" width="2" height="2"/>
+        <rect x="2" y="6" width="1" height="4"/>
+      </svg>
+    </button>
+    <button class="btn btn-icon" id="btnRedo" title="重做 (Ctrl+Y)" aria-label="重做" disabled>
+      <svg class="ic-svg" viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true">
+        <rect x="5" y="3" width="8" height="2"/>
+        <rect x="5" y="11" width="8" height="2"/>
+        <rect x="11" y="3" width="2" height="10"/>
+        <rect x="13" y="7" width="2" height="2"/>
+        <rect x="13" y="6" width="1" height="4"/>
+      </svg>
+    </button>
+    <button class="btn btn-primary" id="btnSaveJson" title="导出 .json 工程文件，存到浏览器下载文件夹">存档</button>
+    <button class="btn" id="btnLoadJson" title="从 .json 工程文件恢复">恢复</button>
+    <button class="btn btn-primary" id="btnExportJpg" title="导出图案 + 已使用颜色图例，存到浏览器下载文件夹">导出 JPG</button>
+    <input type="file" id="fileJson" accept=".json,application/json" hidden />
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ 左栏：绘图工具 + 调色板 ============ -->
+  <aside class="panel panel-left">
+
+    <section class="card">
+      <h2>绘图工具</h2>
+      <div class="tool-grid" id="toolGrid">
+        <button class="tool is-active" data-tool="brush">
+          <span class="tool-ico"><svg class="tool-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+            <rect x="6" y="1" width="4" height="2" fill="#ffffff"/>
+            <rect x="6" y="3" width="4" height="1" fill="#1a1622"/>
+            <rect x="6" y="4" width="4" height="8" fill="#8B279B"/>
+            <rect x="7" y="12" width="2" height="2" fill="#1a1622"/>
+            <rect x="7" y="14" width="2" height="1" fill="#1a1622"/>
+          </svg></span><span class="tool-name">画笔</span><span class="tool-key">B</span>
+        </button>
+        <button class="tool" data-tool="eraser">
+          <span class="tool-ico"><svg class="tool-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+            <rect x="3" y="5" width="10" height="3" fill="#8B279B"/>
+            <rect x="3" y="8" width="10" height="3" fill="#ffffff"/>
+            <rect x="3" y="8" width="10" height="1" fill="#1a1622"/>
+          </svg></span><span class="tool-name">橡皮</span><span class="tool-key">E</span>
+        </button>
+        <button class="tool" data-tool="picker">
+          <span class="tool-ico"><svg class="tool-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+            <rect x="7" y="1" width="2" height="2" fill="#35E352"/>
+            <rect x="6" y="3" width="4" height="2" fill="#35E352"/>
+            <rect x="5" y="5" width="6" height="3" fill="#35E352"/>
+            <rect x="6" y="8" width="4" height="2" fill="#35E352"/>
+            <rect x="7" y="10" width="2" height="2" fill="#35E352"/>
+            <rect x="6" y="4" width="1" height="2" fill="#d6f7dc"/>
+          </svg></span><span class="tool-name">取色器</span><span class="tool-key">I</span>
+        </button>
+        <button class="tool" data-tool="fill">
+          <span class="tool-ico"><svg class="tool-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+            <rect x="3" y="4" width="9" height="2" fill="#8B279B"/>
+            <rect x="4" y="6" width="7" height="6" fill="#8B279B"/>
+            <rect x="4" y="6" width="2" height="6" fill="#35E352"/>
+            <rect x="13" y="9" width="2" height="4" fill="#35E352"/>
+            <rect x="13" y="13" width="2" height="1" fill="#35E352"/>
+          </svg></span><span class="tool-name">填充</span><span class="tool-key">G</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>当前颜色</h2>
+      <div class="current-color">
+        <span class="cc-swatch" id="ccSwatch"></span>
+        <div class="cc-info">
+          <strong id="ccCode">A01</strong>
+          <span id="ccName">白色</span>
+        </div>
+        <div class="cc-pick">
+          <input type="color" id="ccNative" value="#ffffff" title="自定义颜色（自动吸附到最接近的豆色）" />
+          <input type="text" id="ccHex" maxlength="7" spellcheck="false" value="#FFFFFF" title="输入 HEX 后回车" />
+        </div>
+      </div>
+    </section>
+
+    <section class="card card-grow">
+      <h2>
+        MARD标准色 <em id="paletteCount" class="tag">64</em>
+        <input type="search" id="colorSearch" class="mini-search" placeholder="搜索色号 / 名称" />
+      </h2>
+      <div class="palette" id="palette"></div>
+      <p class="hint" id="paletteEmpty" hidden>没有匹配的豆色</p>
+    </section>
+
+
+  </aside>
+
+  <!-- ============ 中栏：画布 + 标尺 + 使用颜色条 ============ -->
+  <section class="stage">
+
+    <!-- 图纸工具条：缩放 / 平移辅助 / 显示开关 -->
+    <div class="stage-tools">
+      <div class="tool-group">
+        <button class="tbtn" id="btnZoomOut" title="缩小 (滚轮下滚)">−</button>
+        <button class="tbtn tbtn-wide" id="btnZoomReset" title="恢复 100%（基准 16px/格）">100%</button>
+        <button class="tbtn" id="btnZoomIn" title="放大 (滚轮上滚)">＋</button>
+      </div>
+      <button class="tbtn" id="btnFit" title="适应窗口：自动计算格子大小">适应</button>
+
+      <span class="tsep"></span>
+
+      <div class="tool-group">
+        <button class="tbtn tgl is-on" id="tglCode" title="图纸上每个色块内是否显示色号">色号</button>
+        <button class="tbtn tgl is-on" id="tglGrid" title="显示格线">格线</button>
+        <button class="tbtn tgl is-on" id="tglRuler" title="显示坐标标尺">标尺</button>
+        <button class="tbtn tgl is-on" id="tglChecker" title="显示 5 格棋盘底">棋盘</button>
+      </div>
+
+      <span class="tspacer"></span>
+      <span class="thint">滚轮缩放 · 中键 / 空格+左键 拖动平移</span>
+    </div>
+
+    <div class="stage-scroll" id="stageScroll">
+      <!-- grid: [左上角] [顶部标尺] / [左侧标尺] [画布]，天然对齐 -->
+      <div class="canvas-wrap" id="canvasWrap">
+        <div class="ruler-corner" id="rulerCorner"></div>
+        <canvas id="rulerTop" class="ruler ruler-top"></canvas>
+        <canvas id="rulerLeft" class="ruler ruler-left"></canvas>
+        <canvas id="board" class="board"></canvas>
+      </div>
+    </div>
+
+    <div class="used-bar">
+      <div class="used-head">
+        <span>已使用颜色</span>
+        <em id="usedSummary">0 种 / 0 颗</em>
+      </div>
+      <div class="used-list" id="usedBar">
+        <span class="used-empty">暂无已使用颜色，用画笔在画布上点一下试试</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 右栏：属性面板 ============ -->
+  <aside class="panel panel-right">
+
+    <section class="card">
+      <h2>画布尺寸</h2>
+      <div class="preset-row" id="presetRow">
+        <button class="chip" data-size="24">24×24</button>
+        <button class="chip" data-size="32">32×32</button>
+        <button class="chip" data-size="40">40×40</button>
+        <button class="chip" data-size="48">48×48</button>
+        <button class="chip is-active" data-size="60">60×60</button>
+      </div>
+      <div class="field-row custom-fields">
+        <label for="inW">宽</label>
+        <input type="number" id="inW" class="num" min="4" max="200" step="1" value="60" />
+        <span class="x">×</span>
+        <label for="inH">高</label>
+        <input type="number" id="inH" class="num" min="4" max="200" step="1" value="60" />
+      </div>
+      <button class="btn btn-primary btn-block" id="btnApplySize">＋ 创建图纸</button>
+      <p class="hint">范围 4–200。输入宽高后点「创建图纸」（或按回车）即可生成，会保留重叠区域内容。</p>
+    </section>
+
+    <section class="card">
+      <h2>参考底图</h2>
+      <div class="btn-row">
+        <button class="btn btn-sm" id="btnUploadImg">上传图片</button>
+        <button class="btn btn-sm" id="btnRemoveImg" disabled>移除</button>
+        <input type="file" id="fileImg" accept="image/*" hidden />
+      </div>
+      <!-- 参考图原图预览：显示在画布范围之外，不会被拼豆图案遮盖 -->
+      <div class="ref-preview" id="refPreviewBox" hidden>
+        <img id="refPreview" alt="参考图原图" />
+      </div>
+      <div class="field-row">
+        <label for="inOpacity">透明度</label>
+        <input type="range" id="inOpacity" min="0" max="100" step="1" value="45" />
+        <span class="num-tag" id="opacityVal">45%</span>
+      </div>
+      <div class="field-row">
+        <label for="selFit">贴合</label>
+        <select id="selFit" class="select">
+          <option value="contain" selected>等比居中（留白）</option>
+          <option value="stretch">拉伸铺满</option>
+        </select>
+      </div>
+      <label class="switch"><input type="checkbox" id="optShowRef" /><span>画布上叠加参考图（置顶描图用）</span></label>
+      <p class="hint" id="refInfo">未载入参考图，可上传图片、把图片拖到画布上，或按 Ctrl+V 粘贴。</p>
+    </section>
+
+    <section class="card">
+      <h2>图片转拼豆</h2>
+      <div class="field-row">
+        <label for="selSample">采样</label>
+        <select id="selSample" class="select">
+          <option value="average" selected>区域平均（抗锯齿）</option>
+          <option value="center">中心点</option>
+        </select>
+      </div>
+      <p class="hint tip"><b>实拍照片用「区域平均」</b>（平滑、抗锯齿）；<b>像素图/线条图用「中心点」</b>（边缘更锐利）。</p>
+
+      <label class="switch"><input type="checkbox" id="optCutWhite" checked /><span>扣除白底（亮度阈值）</span></label>
+      <div class="field-row">
+        <label for="inCutTh">阈值</label>
+        <input type="range" id="inCutTh" min="200" max="255" step="1" value="245" />
+        <span class="num-tag" id="cutThVal">245</span>
+      </div>
+      <p class="hint tip"><b>白底图必开</b>；<b>深色/复杂背景图关掉</b>，否则浅色细节会被误抠（阈值越低抠得越多）。</p>
+
+      <label class="switch"><input type="checkbox" id="optSuppress" checked /><span>白色抑制（加大白色距离惩罚）</span></label>
+      <div class="field-row">
+        <label for="inPenalty">系数</label>
+        <input type="range" id="inPenalty" min="1" max="40" step="1" value="18" />
+        <span class="num-tag" id="penaltyVal">1.8</span>
+      </div>
+      <p class="hint tip"><b>想减少死白、让画面更有色彩时开</b>；系数越大，白豆越少。</p>
+
+      <label class="switch"><input type="checkbox" id="optAutoSuppress" checked /><span>自动抑制（超上限自动加码）</span></label>
+      <div class="field-row">
+        <label for="inWhiteLimit">白占比上限</label>
+        <input type="range" id="inWhiteLimit" min="10" max="60" step="1" value="35" />
+        <span class="num-tag" id="whiteLimitVal">35%</span>
+      </div>
+      <p class="hint tip"><b>白豆占比超上限时自动加码</b>。</p>
+
+      <button class="btn btn-primary btn-block" id="btnConvert">转为拼豆图案</button>
+      <p class="hint" id="convertInfo">按 RGB 欧式距离匹配最接近的豆色。</p>
+    </section>
+
+    <section class="card">
+      <h2>图案变换</h2>
+      <div class="btn-grid">
+        <button class="btn btn-sm" data-tf="mirrorH">水平镜像</button>
+        <button class="btn btn-sm" data-tf="mirrorV">垂直镜像</button>
+        <button class="btn btn-sm" data-tf="rotCW">顺时针 90°</button>
+        <button class="btn btn-sm" data-tf="rotCCW">逆时针 90°</button>
+      </div>
+      <p class="hint">旋转后画布宽高互换，标尺与格子自动重新适配。</p>
+    </section>
+
+    <section class="card card-grow">
+      <h2>
+        豆子用量清单
+        <button class="btn btn-xs" id="btnExportCsv">导出 CSV</button>
+      </h2>
+      <div class="stat-head">
+        <span>合计 <strong id="statTotal">0</strong> 颗</span>
+        <span>白色占比 <strong id="statWhite">0%</strong></span>
+      </div>
+      <div class="stat-list" id="statList">
+        <span class="used-empty">暂无数据</span>
+      </div>
+    </section>
+
+
+  </aside>
+</main>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ============ 点赞庆祝弹窗 ============ -->
+<div class="like-pop" id="likePop" hidden>
+  <div class="like-pop-box">
+    <svg class="rocket" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+      <!-- 箭体 -->
+      <rect x="7" y="1" width="2" height="2" fill="#D6D6D6"/>
+      <rect x="6" y="3" width="4" height="1" fill="#EDEDED"/>
+      <rect x="6" y="4" width="4" height="3" fill="#EDEDED"/>
+      <rect x="6" y="7" width="4" height="1" fill="#C9C9C9"/>
+      <!-- 舷窗 -->
+      <rect x="7" y="5" width="2" height="1" fill="#35E352"/>
+      <!-- 尾翼 -->
+      <rect x="4" y="6" width="2" height="2" fill="#8B279B"/>
+      <rect x="10" y="6" width="2" height="2" fill="#8B279B"/>
+      <!-- 火焰 -->
+      <rect x="7" y="8" width="2" height="1" fill="#FFC365"/>
+      <rect x="7" y="9" width="2" height="1" fill="#E23B3B"/>
+      <rect x="6" y="10" width="4" height="1" fill="#FFC365"/>
+      <rect x="7" y="11" width="2" height="1" fill="#E23B3B"/>
+    </svg>
+    <p class="like-pop-text">感谢点赞，作者已获得核动力！</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
