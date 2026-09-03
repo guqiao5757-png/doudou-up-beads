@@ -1,5 +1,7 @@
 # doudou UP · 拼豆图纸生成器
 
+**拼豆图纸生成器** · **拼豆图纸在线生成** · **图片转拼豆** · **拼豆色号对照表** · **拼豆图纸打印** · **拼豆工具**
+
 把图片或手绘变成可打印的拼豆图纸。**单个 HTML 文件，双击就能用** —— 不用安装、不用联网、不上传任何图片。
 
 > A single-file, offline Perler / Hama bead pattern generator. No build step, no server, no upload.
@@ -92,6 +94,18 @@ const LIKE_API_BASE = 'https://your-host.com';   // 留空 = 离线降级
 ```
 
 接口只有两个：`GET /api/like` 读取、`POST /api/like` 自增，计数持久化在 `like-count.json`（已在 `.gitignore` 中忽略）。
+
+---
+
+## 搜索关键词
+
+如果你是用下面这些词搜到这里的，来对地方了：
+
+**中文**：拼豆、拼豆图纸、拼豆图纸生成器、拼豆图纸在线生成、拼豆图纸生成、拼豆图纸怎么画、图片转拼豆、照片转拼豆、拼豆色号、拼豆色号对照表、拼豆颜色对照、拼豆用量统计、拼豆图纸打印、拼豆教程、拼豆工具、拼豆软件、咪小窝拼豆、拼拼豆豆、融合豆、烫豆、豆豆画、手工 DIY
+
+**English**：Perler beads、Hama beads、fuse beads、iron beads、melty beads、perler bead pattern generator、perler pattern maker、image to perler beads、pixel art generator、bead sprite
+
+色号体系覆盖 **Perler / Hama / 咪小窝 / 融合豆** 等常见品牌通用的 **221 色 MARD 色号**（A1–M15），导出的图纸可直接打印照做。
 
 ---
 

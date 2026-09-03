@@ -36,7 +36,8 @@ const docsDir = path.join(dir, 'docs');
 if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir);
 fs.writeFileSync(path.join(docsDir, 'index.html'), html);
 
-console.log('built bytes:', html.length);
+console.log('built bytes:', Buffer.byteLength(html, 'utf8'));
 console.log('has placeholder left:', html.indexOf('@@FONT_B64@@') !== -1);
-console.log('title ok:', html.indexOf('<title>doudou UP</title>') !== -1);
+// 标题允许带中文副标题，只要 <title> 以 doudou UP 开头即视为正常
+console.log('title ok:', /<title>doudou UP[^<]*<\/title>/.test(html));
 console.log('export prefix:', (html.match(/doudou up_/g) || []).length, 'hits');
