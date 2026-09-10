@@ -781,6 +781,40 @@ input[type="range"] {
   100% { transform: translateY(-220px) scale(.7); opacity: 0; }
 }
 
+/* 笔刷大小控件 */
+.brush-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #E3E7ED;
+}
+.bs-label {
+  font-size: 12px;
+  color: var(--muted, #6B7280);
+  margin-right: 2px;
+}
+.bs {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid #D7DCE3;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #1B1D21);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.bs:hover { border-color: #2F6FED; color: #2F6FED; }
+.bs.is-active {
+  background: #2F6FED;
+  border-color: #2F6FED;
+  color: #fff;
+}
+
 @media (max-width: 1180px) {
   body { overflow: auto; }
   .layout {
@@ -908,6 +942,21 @@ input[type="range"] {
             <rect x="13" y="13" width="2" height="1" fill="#35E352"/>
           </svg></span><span class="tool-name">填充</span><span class="tool-key">G</span>
         </button>
+        <button class="tool" data-tool="select">
+          <span class="tool-ico"><svg class="tool-svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+            <rect x="2" y="2" width="12" height="12" fill="none" stroke="#8B279B" stroke-width="2"/>
+            <rect x="5" y="5" width="6" height="6" fill="#35E352"/>
+          </svg></span><span class="tool-name">框选</span><span class="tool-key">M</span>
+        </button>
+      </div>
+
+      <div class="brush-size" id="brushSize">
+        <span class="bs-label">笔刷</span>
+        <button class="bs is-active" data-size="1">1</button>
+        <button class="bs" data-size="2">2</button>
+        <button class="bs" data-size="3">3</button>
+        <button class="bs" data-size="5">5</button>
+        <button class="bs" data-size="7">7</button>
       </div>
     </section>
 
@@ -1408,6 +1457,8 @@ const state = {
   autoCell: true,         // 自动适应窗口
   tool: 'brush',
   colorIndex: 0,          // 当前绘制颜色
+  brush: 1,               // 笔刷大小（像素格直径，1=单格）。橡皮/画笔共用
+  select: null,           // 矩形选区 {c0,r0,c1,r1}（已规范化，含端点）；null 表示无选区
   showGrid: true,
   showCode: true,
   showRuler: true,
@@ -1665,6 +1716,20 @@ function drawBoard(ctx, cell, o) {
     ctx.lineWidth = 2;
     ctx.strokeRect(o.hover.c * cell + 1, o.hover.r * cell + 1, cell - 2, cell - 2);
   }
+
+  // 矩形选区高亮（半透明填充 + 虚线边框）
+  if (state.select) {
+    const s = state.select;
+    const x = s.c0 * cell, y = s.r0 * cell;
+    const w = (s.c1 - s.c0 + 1) * cell, h = (s.r1 - s.r0 + 1) * cell;
+    ctx.fillStyle = 'rgba(47,111,237,0.18)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#2F6FED';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    ctx.setLineDash([]);
+  }
 }
 
 function renderBoard() {
@@ -1782,6 +1847,8 @@ function renderAll() {
 let drawing = false;     // 是否正在绘制
 let lastCell = null;     // 上一格，用于补全快速拖动的间隙
 let paintingValue = 0;   // 本次绘制写入的值（颜色索引或 EMPTY）
+let selecting = false;   // 是否正在拖拽框选
+let selStart = null;     // 框选起点 {c, r}
 let panning = false;     // 是否正在拖动平移画布
 let panFrom = null;      // 平移起点 { x, y, px, py }
 let spaceDown = false;   // 空格是否按下（空格 + 左键 = 拖动）
@@ -1802,7 +1869,30 @@ function setPixel(c, r, val) {
   return true;
 }
 
-/** Bresenham 连线，避免快速拖动漏格 */
+/** 笔刷盖章：以 (c,r) 为中心盖 state.brush 见方的色块，受选区蒙版限制 */
+function stamp(c, r, val) {
+  const b = state.brush;
+  const off = Math.floor((b - 1) / 2);
+  let changed = false;
+  for (let dr = 0; dr < b; dr++) {
+    for (let dc = 0; dc < b; dc++) {
+      const cc = c - off + dc, rr = r - off + dr;
+      if (cc < 0 || rr < 0 || cc >= state.W || rr >= state.H) continue;
+      if (state.select && !inSelect(cc, rr)) continue;
+      changed = setPixel(cc, rr, val) || changed;
+    }
+  }
+  return changed;
+}
+
+/** 判断某格是否在当前选区内（无选区时返回 true，表示不限） */
+function inSelect(c, r) {
+  const s = state.select;
+  if (!s) return true;
+  return c >= s.c0 && c <= s.c1 && r >= s.r0 && r <= s.r1;
+}
+
+/** Bresenham 连线，沿路径逐格盖章，避免快速拖动漏格 */
 function lineTo(from, to, val) {
   let x0 = from.c, y0 = from.r;
   const x1 = to.c, y1 = to.r;
@@ -1811,7 +1901,7 @@ function lineTo(from, to, val) {
   let err = dx - dy;
   let changed = false;
   for (;;) {
-    changed = setPixel(x0, y0, val) || changed;
+    changed = stamp(x0, y0, val) || changed;
     if (x0 === x1 && y0 === y1) break;
     const e2 = 2 * err;
     if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -1849,6 +1939,26 @@ function beginStroke(e) {
   const cell = eventCell(e);
   if (!cell) return;
   const rightBtn = e.button === 2;
+
+  // 框选模式：开始拖拽矩形选区（单击不拖动 = 取消已有选区）
+  if (state.tool === 'select' && !rightBtn) {
+    selecting = true;
+    selStart = cell;
+    state.select = { c0: cell.c, r0: cell.r, c1: cell.c, r1: cell.r };
+    boardEl.setPointerCapture(e.pointerId);
+    renderAll();
+    return;
+  }
+
+  // 选区存在时右键 = 清空选区内容（保留选框，可继续填）
+  if (rightBtn && state.select) {
+    pushUndo();
+    fillSelection(EMPTY);
+    afterEdit();
+    toast('已清空选区');
+    return;
+  }
+
   const tool = rightBtn ? 'eraser' : state.tool;
 
   if (tool === 'picker') {
@@ -1868,7 +1978,7 @@ function beginStroke(e) {
   drawing = true;
   paintingValue = (tool === 'eraser') ? EMPTY : state.colorIndex;
   lastCell = cell;
-  setPixel(cell.c, cell.r, paintingValue);
+  stamp(cell.c, cell.r, paintingValue);
   boardEl.setPointerCapture(e.pointerId);
   afterEdit();
 }
@@ -1887,10 +1997,16 @@ function moveStroke(e) {
   // 悬停格变化 => 重绘高亮与标尺
   if (!sameCell(state.hover, cell)) { state.hover = cell; needRender = true; }
 
+  // 正在框选 => 实时更新选区预览
+  if (selecting && cell) {
+    state.select.c1 = cell.c;
+    state.select.r1 = cell.r;
+    needRender = true;
+  }
   // 正在绘制 => 补线并写入像素
-  if (drawing && cell) {
+  else if (drawing && cell) {
     if (lastCell) lineTo(lastCell, cell, paintingValue);
-    else setPixel(cell.c, cell.r, paintingValue);
+    else stamp(cell.c, cell.r, paintingValue);
     lastCell = cell;
     needRender = true;
     updateStats();      // 实时统计
@@ -1900,7 +2016,34 @@ function moveStroke(e) {
   if (needRender) renderAll();
 }
 
-function endStroke() { drawing = false; lastCell = null; endPan(); }
+function endStroke() {
+  if (selecting) {
+    selecting = false;
+    const s = state.select;
+    if (s) {
+      // 规范化（拖动方向任意），单击未拖动则视为取消选区
+      const c0 = Math.min(s.c0, s.c1), c1 = Math.max(s.c0, s.c1);
+      const r0 = Math.min(s.r0, s.r1), r1 = Math.max(s.r0, s.r1);
+      if (c0 === c1 && r0 === r1) state.select = null;
+      else state.select = { c0, r0, c1, r1 };
+    }
+    renderAll();
+    return;
+  }
+  drawing = false; lastCell = null; endPan();
+}
+
+/** 把当前选区整体写入某个值（填色或清空），调用前需自行 pushUndo */
+function fillSelection(val) {
+  const s = state.select; if (!s) return;
+  const { W } = state;
+  for (let r = s.r0; r <= s.r1; r++)
+    for (let c = s.c0; c <= s.c1; c++)
+      state.pixels[r * W + c] = val;
+}
+
+/** 取消选区 */
+function clearSelect() { state.select = null; renderAll(); }
 
 /** 编辑后统一刷新（渲染 + 统计） */
 function afterEdit() { renderBoard(); updateStats(); }
@@ -2032,6 +2175,11 @@ function setTool(tool) {
   document.querySelectorAll('#toolGrid .tool').forEach(b => b.classList.toggle('is-active', b.dataset.tool === tool));
 }
 document.querySelectorAll('#toolGrid .tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+// 笔刷大小：1/2/3/5/7 像素格，画笔与橡皮共用
+document.querySelectorAll('#brushSize .bs').forEach(b => b.addEventListener('click', () => {
+  state.brush = +b.dataset.size;
+  document.querySelectorAll('#brushSize .bs').forEach(x => x.classList.toggle('is-active', x === b));
+}));
 
 /* ---------- 6) 调色板 UI ---------- */
 function buildPalette() {
@@ -2050,6 +2198,7 @@ function buildPalette() {
 }
 
 function selectColor(i) {
+  const fromPicker = state.tool === 'picker';
   state.colorIndex = clamp(i, 0, PALETTE.length - 1);
   const p = PALETTE[state.colorIndex];
   $('ccSwatch').style.background = p.hex;
@@ -2061,6 +2210,14 @@ function selectColor(i) {
   if (state.tool === 'eraser' || state.tool === 'picker') setTool('brush');
   // 同步使用颜色条的高亮
   document.querySelectorAll('.used-chip').forEach(el => el.classList.toggle('is-active', +el.dataset.idx === state.colorIndex));
+  // 若已有选区，则整片填充（批量填色）；取色器取色时不触发
+  if (state.select && !fromPicker) {
+    pushUndo();
+    fillSelection(state.colorIndex);
+    afterEdit();
+    const s = state.select;
+    toast('已填充选区 ' + (s.c1 - s.c0 + 1) + '×' + (s.r1 - s.r0 + 1) + ' 格');
+  }
 }
 
 /** 搜索：按色号 / 名称 / HEX 过滤 */
@@ -2820,6 +2977,9 @@ function init() {
       return;
     }
 
+    // Esc：有选区则取消选区
+    if (e.key === 'Escape') { if (state.select) { clearSelect(); toast('已取消选区'); } return; }
+
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
@@ -2828,6 +2988,7 @@ function init() {
     else if (k === 'e') setTool('eraser');
     else if (k === 'i') setTool('picker');
     else if (k === 'g') setTool('fill');
+    else if (k === 'm') setTool('select');      // M = 框选
     else if (k === '0') fitToWindow();          // 0 = 适应窗口
   });
 

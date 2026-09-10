@@ -772,6 +772,40 @@ input[type="range"] {
   100% { transform: translateY(-220px) scale(.7); opacity: 0; }
 }
 
+/* 笔刷大小控件 */
+.brush-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #E3E7ED;
+}
+.bs-label {
+  font-size: 12px;
+  color: var(--muted, #6B7280);
+  margin-right: 2px;
+}
+.bs {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid #D7DCE3;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #1B1D21);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.bs:hover { border-color: #2F6FED; color: #2F6FED; }
+.bs.is-active {
+  background: #2F6FED;
+  border-color: #2F6FED;
+  color: #fff;
+}
+
 @media (max-width: 1180px) {
   body { overflow: auto; }
   .layout {
