@@ -1013,6 +1013,24 @@ document.querySelectorAll('#brushSize .bs-shape').forEach(b => b.addEventListene
   document.querySelectorAll('#brushSize .bs-shape').forEach(x => x.classList.toggle('is-active', x === b));
 }));
 
+// 选区操作：显式按钮，降低「批量填色」的发现成本
+$('btnFillSel').addEventListener('click', () => {
+  if (!state.select) { toast('先用「框选」工具拖出一片区域', 'warn'); return; }
+  pushUndo();
+  fillSelection(state.colorIndex);
+  afterEdit();
+  const s = state.select;
+  toast('已填充选区 ' + (s.c1 - s.c0 + 1) + '×' + (s.r1 - s.r0 + 1) + ' 格');
+});
+$('btnClearSel').addEventListener('click', () => {
+  if (!state.select) return;
+  pushUndo();
+  fillSelection(EMPTY);
+  afterEdit();
+  toast('已清空选区内容');
+});
+$('btnCancelSel').addEventListener('click', () => { clearSelect(); toast('已取消选区'); });
+
 /* ---------- 6) 调色板 UI ---------- */
 function buildPalette() {
   const box = $('palette');

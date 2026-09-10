@@ -130,7 +130,7 @@
       </div>
 
       <div class="brush-size" id="brushSize">
-        <span class="bs-label">笔刷</span>
+        <span class="bs-label">笔刷大小</span>
         <button class="bs is-active" data-size="1">1</button>
         <button class="bs" data-size="2">2</button>
         <button class="bs" data-size="3">3</button>
@@ -140,6 +140,13 @@
         <button class="bs-shape is-active" data-shape="square" title="方形笔刷">方</button>
         <button class="bs-shape" data-shape="circle" title="圆形笔刷">圆</button>
       </div>
+
+      <div class="btn-row" id="selActions" style="margin-top:8px">
+        <button class="btn btn-sm" id="btnFillSel" title="把当前选区整片填成当前颜色">填充选区</button>
+        <button class="btn btn-sm" id="btnClearSel" title="擦空选区内的豆子">清空内容</button>
+        <button class="btn btn-sm" id="btnCancelSel" title="取消选区虚线框">取消选区</button>
+      </div>
+      <p class="hint tip"><b>框选(M)</b> 拖出矩形 → 点颜色或「填充选区」整片填色；橡皮/画笔也只在选区内生效。笔刷大小 1–7 由橡皮与画笔共用。</p>
     </section>
 
     <section class="card">
