@@ -805,6 +805,30 @@ input[type="range"] {
   border-color: #2F6FED;
   color: #fff;
 }
+.bs-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: #E3E7ED;
+}
+.bs-shape {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #D7DCE3;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #1B1D21);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.bs-shape:hover { border-color: #2F6FED; color: #2F6FED; }
+.bs-shape.is-active {
+  background: #2F6FED;
+  border-color: #2F6FED;
+  color: #fff;
+}
 
 @media (max-width: 1180px) {
   body { overflow: auto; }

@@ -278,6 +278,7 @@ const state = {
   tool: 'brush',
   colorIndex: 0,          // 当前绘制颜色
   brush: 1,               // 笔刷大小（像素格直径，1=单格）。橡皮/画笔共用
+  brushShape: 'square',   // 笔刷形状：'square' 方形 / 'circle' 圆形
   select: null,           // 矩形选区 {c0,r0,c1,r1}（已规范化，含端点）；null 表示无选区
   showGrid: true,
   showCode: true,
@@ -689,13 +690,19 @@ function setPixel(c, r, val) {
   return true;
 }
 
-/** 笔刷盖章：以 (c,r) 为中心盖 state.brush 见方的色块，受选区蒙版限制 */
+/** 笔刷盖章：以 (c,r) 为中心盖 state.brush 见方的色块，受选区蒙版限制；圆形笔刷按半径裁剪 */
 function stamp(c, r, val) {
   const b = state.brush;
   const off = Math.floor((b - 1) / 2);
+  const circle = state.brushShape === 'circle';
+  const rad2 = ((b - 1) / 2) * ((b - 1) / 2) + 0.3; // 圆形判定半径平方（容差让 b=1 仍为单格）
   let changed = false;
   for (let dr = 0; dr < b; dr++) {
     for (let dc = 0; dc < b; dc++) {
+      if (circle) {
+        const dx = dc - off, dy = dr - off;
+        if (dx * dx + dy * dy > rad2) continue;
+      }
       const cc = c - off + dc, rr = r - off + dr;
       if (cc < 0 || rr < 0 || cc >= state.W || rr >= state.H) continue;
       if (state.select && !inSelect(cc, rr)) continue;
@@ -999,6 +1006,11 @@ document.querySelectorAll('#toolGrid .tool').forEach(b => b.addEventListener('cl
 document.querySelectorAll('#brushSize .bs').forEach(b => b.addEventListener('click', () => {
   state.brush = +b.dataset.size;
   document.querySelectorAll('#brushSize .bs').forEach(x => x.classList.toggle('is-active', x === b));
+}));
+// 笔刷形状：方形 / 圆形
+document.querySelectorAll('#brushSize .bs-shape').forEach(b => b.addEventListener('click', () => {
+  state.brushShape = b.dataset.shape;
+  document.querySelectorAll('#brushSize .bs-shape').forEach(x => x.classList.toggle('is-active', x === b));
 }));
 
 /* ---------- 6) 调色板 UI ---------- */

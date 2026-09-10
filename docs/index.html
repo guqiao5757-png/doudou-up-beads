@@ -814,6 +814,30 @@ input[type="range"] {
   border-color: #2F6FED;
   color: #fff;
 }
+.bs-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: #E3E7ED;
+}
+.bs-shape {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #D7DCE3;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #1B1D21);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.bs-shape:hover { border-color: #2F6FED; color: #2F6FED; }
+.bs-shape.is-active {
+  background: #2F6FED;
+  border-color: #2F6FED;
+  color: #fff;
+}
 
 @media (max-width: 1180px) {
   body { overflow: auto; }
@@ -957,6 +981,9 @@ input[type="range"] {
         <button class="bs" data-size="3">3</button>
         <button class="bs" data-size="5">5</button>
         <button class="bs" data-size="7">7</button>
+        <span class="bs-sep"></span>
+        <button class="bs-shape is-active" data-shape="square" title="方形笔刷">方</button>
+        <button class="bs-shape" data-shape="circle" title="圆形笔刷">圆</button>
       </div>
     </section>
 
@@ -1458,6 +1485,7 @@ const state = {
   tool: 'brush',
   colorIndex: 0,          // 当前绘制颜色
   brush: 1,               // 笔刷大小（像素格直径，1=单格）。橡皮/画笔共用
+  brushShape: 'square',   // 笔刷形状：'square' 方形 / 'circle' 圆形
   select: null,           // 矩形选区 {c0,r0,c1,r1}（已规范化，含端点）；null 表示无选区
   showGrid: true,
   showCode: true,
@@ -1869,13 +1897,19 @@ function setPixel(c, r, val) {
   return true;
 }
 
-/** 笔刷盖章：以 (c,r) 为中心盖 state.brush 见方的色块，受选区蒙版限制 */
+/** 笔刷盖章：以 (c,r) 为中心盖 state.brush 见方的色块，受选区蒙版限制；圆形笔刷按半径裁剪 */
 function stamp(c, r, val) {
   const b = state.brush;
   const off = Math.floor((b - 1) / 2);
+  const circle = state.brushShape === 'circle';
+  const rad2 = ((b - 1) / 2) * ((b - 1) / 2) + 0.3; // 圆形判定半径平方（容差让 b=1 仍为单格）
   let changed = false;
   for (let dr = 0; dr < b; dr++) {
     for (let dc = 0; dc < b; dc++) {
+      if (circle) {
+        const dx = dc - off, dy = dr - off;
+        if (dx * dx + dy * dy > rad2) continue;
+      }
       const cc = c - off + dc, rr = r - off + dr;
       if (cc < 0 || rr < 0 || cc >= state.W || rr >= state.H) continue;
       if (state.select && !inSelect(cc, rr)) continue;
@@ -2179,6 +2213,11 @@ document.querySelectorAll('#toolGrid .tool').forEach(b => b.addEventListener('cl
 document.querySelectorAll('#brushSize .bs').forEach(b => b.addEventListener('click', () => {
   state.brush = +b.dataset.size;
   document.querySelectorAll('#brushSize .bs').forEach(x => x.classList.toggle('is-active', x === b));
+}));
+// 笔刷形状：方形 / 圆形
+document.querySelectorAll('#brushSize .bs-shape').forEach(b => b.addEventListener('click', () => {
+  state.brushShape = b.dataset.shape;
+  document.querySelectorAll('#brushSize .bs-shape').forEach(x => x.classList.toggle('is-active', x === b));
 }));
 
 /* ---------- 6) 调色板 UI ---------- */
