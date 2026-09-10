@@ -975,7 +975,7 @@ input[type="range"] {
       </div>
 
       <div class="brush-size" id="brushSize">
-        <span class="bs-label">笔刷</span>
+        <span class="bs-label">笔刷大小</span>
         <button class="bs is-active" data-size="1">1</button>
         <button class="bs" data-size="2">2</button>
         <button class="bs" data-size="3">3</button>
@@ -985,6 +985,13 @@ input[type="range"] {
         <button class="bs-shape is-active" data-shape="square" title="方形笔刷">方</button>
         <button class="bs-shape" data-shape="circle" title="圆形笔刷">圆</button>
       </div>
+
+      <div class="btn-row" id="selActions" style="margin-top:8px">
+        <button class="btn btn-sm" id="btnFillSel" title="把当前选区整片填成当前颜色">填充选区</button>
+        <button class="btn btn-sm" id="btnClearSel" title="擦空选区内的豆子">清空内容</button>
+        <button class="btn btn-sm" id="btnCancelSel" title="取消选区虚线框">取消选区</button>
+      </div>
+      <p class="hint tip"><b>框选(M)</b> 拖出矩形 → 点颜色或「填充选区」整片填色；橡皮/画笔也只在选区内生效。笔刷大小 1–7 由橡皮与画笔共用。</p>
     </section>
 
     <section class="card">
@@ -2219,6 +2226,24 @@ document.querySelectorAll('#brushSize .bs-shape').forEach(b => b.addEventListene
   state.brushShape = b.dataset.shape;
   document.querySelectorAll('#brushSize .bs-shape').forEach(x => x.classList.toggle('is-active', x === b));
 }));
+
+// 选区操作：显式按钮，降低「批量填色」的发现成本
+$('btnFillSel').addEventListener('click', () => {
+  if (!state.select) { toast('先用「框选」工具拖出一片区域', 'warn'); return; }
+  pushUndo();
+  fillSelection(state.colorIndex);
+  afterEdit();
+  const s = state.select;
+  toast('已填充选区 ' + (s.c1 - s.c0 + 1) + '×' + (s.r1 - s.r0 + 1) + ' 格');
+});
+$('btnClearSel').addEventListener('click', () => {
+  if (!state.select) return;
+  pushUndo();
+  fillSelection(EMPTY);
+  afterEdit();
+  toast('已清空选区内容');
+});
+$('btnCancelSel').addEventListener('click', () => { clearSelect(); toast('已取消选区'); });
 
 /* ---------- 6) 调色板 UI ---------- */
 function buildPalette() {
