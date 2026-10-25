@@ -1570,8 +1570,11 @@ function downloadBlob(blob, filename, okMsg) {
   toast(okMsg + ' → ' + filename, '', 4000);
 }
 
-function exportJpg() {
-  // 导出一张干净的图纸：不画参考图，格子固定放大以便打印
+/**
+ * 生成一张完整的导出画布：图案 + 下方色号图例（不含参考图）
+ * 导出单张与批量导出共用，保证两者版式完全一致
+ */
+function buildExportCanvas() {
   const stats = computeStats();
   const list = stats.list;
   const cell = clamp(Math.floor(4000 / Math.max(state.W, state.H)), 8, 24);
@@ -1602,9 +1605,12 @@ function exportJpg() {
       y: ph, w: totalW, pad, sw, itemW, itemH, titleH, cols
     });
   }
+  return off;
+}
 
-  // 质量 0.92 兼顾体积与清晰度
-  off.toBlob(blob => {
+function exportJpg() {
+  // 导出一张干净的图纸：不画参考图，格子固定放大以便打印
+  buildExportCanvas().toBlob(blob => {
     downloadBlob(blob, 'doudou up_' + state.W + 'x' + state.H + '_' + dateStamp() + '.jpg', 'JPG 已导出（含色号图例）');
   }, 'image/jpeg', 0.92);
 }

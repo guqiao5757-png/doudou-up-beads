@@ -17,6 +17,8 @@ tools/.secret
 tools/keys.csv
 # 付费版构建产物（含内嵌密钥，不入公开仓库）
 doudou up pro.html
+# Pro 功能源码（图纸库 / 批量导出），公开等于白送付费功能
+pro.js
 # 内部运营手册（含定价与发货流程）
 tools/密钥运营手册.md
 

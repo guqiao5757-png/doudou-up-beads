@@ -56,12 +56,24 @@ if (isPro) {
     process.exit(1);
   }
 
+  // Pro 功能模块：图纸库 + 批量导出
+  const proPath = path.join(dir, 'pro.js');
+  if (!fs.existsSync(proPath)) {
+    console.error('构建失败：缺少 pro.js');
+    process.exit(1);
+  }
+  const projs = fs.readFileSync(proPath, 'utf8');
+
   const closeIdx = html.lastIndexOf('</body>');
   if (closeIdx === -1) {
     console.error('构建失败：index.html 中找不到 </body>');
     process.exit(1);
   }
-  html = html.slice(0, closeIdx) + '<script>\n' + lic + '\n</script>\n' + html.slice(closeIdx);
+  // 两个模块各用一个 script 标签，避免与 app.js 的作用域互相干扰
+  html = html.slice(0, closeIdx) +
+    '<script>\n' + lic + '\n</script>\n' +
+    '<script>\n' + projs + '\n</script>\n' +
+    html.slice(closeIdx);
   outName = 'doudou up pro.html';
 }
 
@@ -86,3 +98,4 @@ console.log('has placeholder left:', html.indexOf('@@FONT_B64@@') !== -1 || html
 console.log('title ok:', /<title>doudou UP[^<]*<\/title>/.test(html));
 console.log('export prefix:', (html.match(/doudou up_/g) || []).length, 'hits');
 console.log('license module:', html.indexOf('DDU_LICENSE') !== -1 ? 'included' : 'absent');
+console.log('pro module:', html.indexOf('DDU_LIBRARY') !== -1 ? 'included' : 'absent');
