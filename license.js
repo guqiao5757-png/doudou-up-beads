@@ -493,7 +493,7 @@
       '  <input id="dduGateInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-30D-0001-7K2M9Q" />',
       '  <p class="ddu-gate-msg" id="dduGateMsg"></p>',
       '  <button class="ddu-gate-btn" id="dduGateOk">激活并开始使用</button>',
-      '  <p class="ddu-gate-foot">密钥格式：DDU-日期-序号-校验码<br>还没有密钥？请联系作者购买。</p>',
+      '  <p class="ddu-gate-foot">密钥格式：DDU-有效天数-序号-校验码<br>还没有密钥？请联系作者购买。</p>',
       '</div>'
     ].join('');
     document.body.appendChild(gate);

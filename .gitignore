@@ -26,6 +26,11 @@ doudou up pro.html
 pro.js
 # 内部运营手册（含定价与发货流程）
 tools/密钥运营手册.md
+# 买家使用说明（付费产品的配套文档，不公开）
+使用说明.html
+使用说明.pdf
+# 说明书的截图与中间产物
+shots/
 
 # 编辑器与系统
 .vscode/
