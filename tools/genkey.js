@@ -186,13 +186,17 @@ function main() {
   }
 
   const rows = [];
+  // 剩余天数按「日期差 + 1」算（到期日当天仍可用），与前端 license.js 的 daysLeft 保持一致。
+  // 用 0 点对齐，避免当天下午生成时被四舍五入吃掉一天。
+  const dueStart = new Date(+dueDate.slice(0, 4), +dueDate.slice(4, 6) - 1, +dueDate.slice(6, 8));
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   for (let i = 0; i < opt.count; i++) {
     if (seq > 9999) { console.error('警告：序列号超过 9999，停止生成'); break; }
     rows.push({
       seq: seq,
       key: makeKey(dueDate, seq, secret),
       due: dueDate,
-      days: Math.round((new Date(+dueDate.slice(0, 4), +dueDate.slice(4, 6) - 1, +dueDate.slice(6, 8)) - now) / 86400000) + 1,
+      days: Math.round((dueStart - todayStart) / 86400000) + 1,
       at: fmtTime(now),
       note: opt.note,
     });

@@ -180,11 +180,13 @@
       return { ok: false, reason: '密钥无效，请检查是否抄错' };
     }
 
-    var daysLeft = Math.round((d - todayStart()) / DAY_MS);
-    if (daysLeft < 0) {
+    // 到期日当天仍可使用（含当天），所以「剩余天数」要把今天算进去。
+    // 例如 30 天卡当天激活应显示「剩余 30 天」，最后一天显示「剩余 1 天」。
+    var diff = Math.round((d - todayStart()) / DAY_MS);
+    if (diff < 0) {
       return { ok: false, reason: '这张密钥已于 ' + fmtDue(p.due) + ' 到期', due: p.due, seq: p.seq, expired: true };
     }
-    return { ok: true, due: p.due, seq: p.seq, daysLeft: daysLeft };
+    return { ok: true, due: p.due, seq: p.seq, daysLeft: diff + 1 };
   }
 
   function fmtDue(due) {
