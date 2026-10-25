@@ -191,12 +191,39 @@
     return due.slice(0, 4) + '-' + due.slice(4, 6) + '-' + due.slice(6, 8);
   }
 
+  // 内存兜底：部分环境（预览 iframe、隐私模式、Safari 的 file://）会拒绝 localStorage，
+  // 此时仅靠 localStorage 会导致「显示激活成功但状态读不回来」，门关不上。
+  // 这里统一走内存 + localStorage 双层：内存保证本次会话可用，localStorage 负责持久化。
+  var memStore = {};
+
   function readStore(k) {
-    try { return localStorage.getItem(k); } catch (e) { return null; }
+    try {
+      var v = localStorage.getItem(k);
+      if (v !== null) return v;
+    } catch (e) {}
+    return Object.prototype.hasOwnProperty.call(memStore, k) ? memStore[k] : null;
   }
 
   function writeStore(k, v) {
+    memStore[k] = String(v);
     try { localStorage.setItem(k, v); } catch (e) {}
+  }
+
+  function removeStore(k) {
+    delete memStore[k];
+    try { localStorage.removeItem(k); } catch (e) {}
+  }
+
+  // 判断当前环境能否持久化（用于提示用户「关闭后需重新输入」）
+  function persistentStorageOK() {
+    try {
+      var k = '__ddu_persist_test__';
+      localStorage.setItem(k, '1');
+      localStorage.removeItem(k);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // 时间倒退检测：记录见过的最晚时间，若当前时间明显早于它，说明系统时间被调过
@@ -231,12 +258,18 @@
   function activate(raw) {
     var r = verifyKey(raw);
     if (!r.ok) return r;
-    writeStore(LS_LICENSE, normalize(raw));
+    var saved = normalize(raw);
+    writeStore(LS_LICENSE, saved);
+    // 回读确认：避免出现「提示激活成功、实际没存下来、门关不上」
+    var back = readStore(LS_LICENSE);
+    if (!back || !verifyKey(back).ok) {
+      return { ok: false, reason: '授权未能保存，请检查浏览器是否禁用了本地存储' };
+    }
     return r;
   }
 
   function deactivate() {
-    try { localStorage.removeItem(LS_LICENSE); } catch (e) {}
+    removeStore(LS_LICENSE);
   }
 
   // ---------- 界面 ----------
@@ -256,14 +289,32 @@
     '.ddu-lic-msg{min-height:18px;margin:8px 0 0;font-size:12px;line-height:1.5;color:#6b6675}',
     '.ddu-lic-msg.is-err{color:#C0392B}',
     '.ddu-lic-msg.is-ok{color:#1D9E75}',
-    '.ddu-lic-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}',
+    '.ddu-lic-acts{display:flex;gap:8px;align-items:center;margin-top:16px}',
+    '.ddu-lic-logout{margin-right:auto;border:0;background:none;padding:0;color:#8b8695;font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit}',
+    '.ddu-lic-logout:hover{color:#C0392B}',
     '.ddu-lic-acts button{padding:8px 16px;border-radius:8px;border:1px solid #d9d6e0;background:#fff;font-size:13px;cursor:pointer;font-family:inherit}',
     '.ddu-lic-acts button:hover{border-color:#8B279B;color:#8B279B}',
     '.ddu-lic-acts button.primary{background:#8B279B;border-color:#8B279B;color:#fff}',
     '.ddu-lic-acts button.primary:hover{background:#7a2290;color:#fff}',
     '.ddu-lic-status{padding:12px;border-radius:8px;background:#f6f4f9;font-size:13px;line-height:1.7;color:#3a3444;margin-bottom:14px}',
     '.ddu-lic-status b{color:#1a1622}',
-    '.ddu-lic-link{font-size:12px;color:#8B279B;cursor:pointer;text-decoration:underline;background:none;border:0;padding:0;font-family:inherit}'
+    '.ddu-lic-link{font-size:12px;color:#8B279B;cursor:pointer;text-decoration:underline;background:none;border:0;padding:0;font-family:inherit}',
+    // 全屏激活门：未激活时挡住整个应用，无法关闭
+    '.ddu-gate{position:fixed;inset:0;z-index:99999;background:#faf9fc;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}',
+    '.ddu-gate[hidden]{display:none!important}',
+    '.ddu-gate-box{width:min(430px,100%);background:#fff;border-radius:16px;padding:34px 30px 24px;box-shadow:0 20px 60px rgba(26,22,34,.13);text-align:center}',
+    '.ddu-gate-logo{width:56px;height:56px;margin:0 auto 16px;border-radius:14px;background:#f4ebf7;display:flex;align-items:center;justify-content:center}',
+    '.ddu-gate h2{margin:0 0 8px;font-size:18px;font-weight:600;color:#1a1622}',
+    '.ddu-gate-desc{margin:0 0 22px;font-size:13px;color:#6b6675;line-height:1.7}',
+    '.ddu-gate input{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #d9d6e0;border-radius:9px;font-size:14px;letter-spacing:.6px;font-family:ui-monospace,Menlo,Consolas,monospace;outline:none;text-align:center;background:#fff}',
+    '.ddu-gate input:focus{border-color:#8B279B;box-shadow:0 0 0 3px rgba(139,39,155,.12)}',
+    '.ddu-gate-msg{min-height:18px;margin:10px 0 0;font-size:12px;line-height:1.5;color:#6b6675}',
+    '.ddu-gate-msg.is-err{color:#C0392B}',
+    '.ddu-gate-msg.is-ok{color:#1D9E75}',
+    '.ddu-gate-btn{width:100%;margin-top:14px;padding:12px;border:0;border-radius:9px;background:#8B279B;color:#fff;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}',
+    '.ddu-gate-btn:hover{background:#7a2290}',
+    '.ddu-gate-foot{margin:16px 0 0;font-size:11px;color:#a9a4b3;line-height:1.6}',
+    'body.ddu-locked{overflow:hidden}'
   ].join('');
 
   var els = {};
@@ -301,6 +352,7 @@
       '  <input id="dduLicInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-20261231-0001-7K2M9Q" />',
       '  <p class="ddu-lic-msg" id="dduLicMsg"></p>',
       '  <div class="ddu-lic-acts">',
+      '    <button id="dduLicLogout" class="ddu-lic-logout" hidden>退出授权</button>',
       '    <button id="dduLicClose">关闭</button>',
       '    <button id="dduLicOk" class="primary">激活</button>',
       '  </div>',
@@ -313,11 +365,13 @@
     els.msg = mask.querySelector('#dduLicMsg');
     els.status = mask.querySelector('#dduLicStatus');
     els.ok = mask.querySelector('#dduLicOk');
+    els.logout = mask.querySelector('#dduLicLogout');
 
     btn.addEventListener('click', openDialog);
     mask.querySelector('#dduLicClose').addEventListener('click', closeDialog);
     mask.addEventListener('click', function (e) { if (e.target === mask) closeDialog(); });
     els.ok.addEventListener('click', submit);
+    els.logout.addEventListener('click', doLogout);
     els.input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); submit(); }
     });
@@ -326,6 +380,102 @@
     });
 
     refreshButton();
+  }
+
+  /* ---------- 全屏激活门（未激活时挡住整个应用） ---------- */
+  var GATE_ID = 'dduGate';
+
+  function gateMsg(text, type) {
+    if (!els.gateMsg) return;
+    els.gateMsg.textContent = text || '';
+    els.gateMsg.className = 'ddu-gate-msg' + (type ? ' is-' + type : '');
+  }
+
+  function buildGate() {
+    if (document.getElementById(GATE_ID)) return;
+    var gate = document.createElement('div');
+    gate.className = 'ddu-gate';
+    gate.id = GATE_ID;
+    gate.hidden = !!currentState().active;
+    gate.innerHTML = [
+      '<div class="ddu-gate-box" role="dialog" aria-modal="true" aria-labelledby="dduGateTitle">',
+      '  <div class="ddu-gate-logo">',
+      '    <svg width="30" height="30" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">',
+      '      <rect x="4" y="2" width="8" height="2" fill="#8B279B"/>',
+      '      <rect x="3" y="4" width="10" height="7" fill="#8B279B"/>',
+      '      <rect x="4" y="11" width="8" height="2" fill="#8B279B"/>',
+      '      <rect x="6" y="13" width="4" height="1" fill="#8B279B"/>',
+      '      <rect x="5" y="3" width="2" height="2" fill="#35E352"/>',
+      '      <rect x="4" y="5" width="1" height="3" fill="#35E352"/>',
+      '    </svg>',
+      '  </div>',
+      '  <h2 id="dduGateTitle">激活 doudou UP</h2>',
+      '  <p class="ddu-gate-desc">这是付费版，需要密钥才能使用。<br>请输入购买后收到的密钥，本地校验、无需联网。</p>',
+      '  <input id="dduGateInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-20261231-0001-7K2M9Q" />',
+      '  <p class="ddu-gate-msg" id="dduGateMsg"></p>',
+      '  <button class="ddu-gate-btn" id="dduGateOk">激活并开始使用</button>',
+      '  <p class="ddu-gate-foot">密钥格式：DDU-日期-序号-校验码<br>还没有密钥？请联系作者购买。</p>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(gate);
+
+    els.gate = gate;
+    els.gateInput = gate.querySelector('#dduGateInput');
+    els.gateMsg = gate.querySelector('#dduGateMsg');
+    els.gateOk = gate.querySelector('#dduGateOk');
+
+    els.gateOk.addEventListener('click', submitGate);
+    els.gateInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitGate(); }
+      e.stopPropagation();
+    });
+    // 点击遮罩不关闭，必须激活才能进入
+    gate.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+
+  function submitGate() {
+    try {
+      var raw = els.gateInput.value;
+      if (!normalize(raw)) { gateMsg('请输入密钥', 'err'); return; }
+      var r = activate(raw);
+      if (!r.ok) { gateMsg(r.reason, 'err'); return; }
+      gateMsg('激活成功，正在进入…', 'ok');
+      refreshButton();
+      updateGate();
+      if (typeof toast === 'function') {
+        toast('激活成功，有效期至 ' + fmtDue(r.due) + '（剩余 ' + r.daysLeft + ' 天）', '', 3600);
+        if (!persistentStorageOK()) {
+          toast('提示：当前环境无法保存授权，关闭页面后需重新输入密钥。建议用本地文件打开。', 'warn', 7000);
+        }
+      }
+    } catch (err) {
+      // 任何异常都显示出来，避免"卡在激活页且毫无提示"
+      gateMsg('激活过程出错：' + (err && err.message ? err.message : String(err)), 'err');
+      console.error('[doudou UP] 激活异常', err);
+    }
+  }
+
+  function updateGate() {
+    if (!els.gate) return;
+    var s = currentState();
+    var locked = !s.active;
+    els.gate.hidden = !locked;
+    if (document.body) document.body.classList.toggle('ddu-locked', locked);
+    if (locked) {
+      closeDialog();
+      if (s.clockTampered) gateMsg(s.reason, 'err');
+    }
+  }
+
+  // 未激活时拦截键盘，避免通过快捷键操作被遮住的画布
+  function lockKeyboard() {
+    window.addEventListener('keydown', function (e) {
+      if (!els.gate || els.gate.hidden) return;
+      var t = e.target;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }, true);
   }
 
   function setMsg(text, type) {
@@ -357,8 +507,10 @@
     var s = currentState();
     els.mask.hidden = false;
     setMsg('');
+    els.logout.hidden = true;
 
     if (s.active) {
+      els.logout.hidden = false;
       els.status.hidden = false;
       els.status.innerHTML =
         '当前状态：<b>已激活</b><br>' +
@@ -377,6 +529,7 @@
       els.input.placeholder = 'DDU-20261231-0001-7K2M9Q';
       els.ok.textContent = '激活';
     } else {
+      els.logout.hidden = true;
       els.status.hidden = true;
       els.input.value = '';
       els.input.placeholder = 'DDU-20261231-0001-7K2M9Q';
@@ -388,6 +541,14 @@
 
   function closeDialog() {
     if (els.mask) els.mask.hidden = true;
+  }
+
+  function doLogout() {
+    deactivate();
+    refreshButton();
+    closeDialog();
+    updateGate();
+    if (typeof toast === 'function') toast('已退出授权，需要重新输入密钥才能使用');
   }
 
   function submit() {
@@ -403,6 +564,9 @@
   function boot() {
     injectStyle();
     buildUI();
+    buildGate();
+    updateGate();
+    lockKeyboard();
   }
 
   var api = {

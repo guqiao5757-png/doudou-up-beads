@@ -220,6 +220,18 @@ button { font: inherit; color: inherit; }
 .hint.tip { margin-top: 5px; line-height: 1.55; }
 .hint.tip b { color: var(--accent-ink); font-weight: 800; }
 
+/* 画布尺寸的实物换算提示（颗数 → 厘米） */
+.size-cm {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: rgba(139, 39, 155, .07);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
 .btn {
   padding: 6px 12px;
   border: var(--bw) solid var(--ink);

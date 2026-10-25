@@ -1118,6 +1118,7 @@ function resizeBoard(W, H) {
   state.hover = null;
   layout();
   updateStats();
+  updateSizeCm();
 }
 
 function syncPresetActive() {
@@ -1142,6 +1143,29 @@ $('btnApplySize').addEventListener('click', applyCustomSize);
 ['inW', 'inH'].forEach(id => $(id).addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); applyCustomSize(); }
 }));
+
+/**
+ * 尺寸单位说明：拼豆图纸按「豆子颗数」计量（横向 × 纵向），不是厘米。
+ * 这里把颗数换算成实物尺寸，帮用户判断做出来多大：
+ *   5mm 标准豆（midi）  → 1 颗 ≈ 0.5 cm
+ *   2.6mm 迷你豆（mini）→ 1 颗 ≈ 0.26 cm
+ */
+function updateSizeCm() {
+  const el = $('sizeCm');
+  if (!el) return;
+  const w = clampInt($('inW').value, MIN_SIZE, MAX_SIZE);
+  const h = clampInt($('inH').value, MIN_SIZE, MAX_SIZE);
+  const cm = (n, per) => {
+    const v = Math.round(n * per * 10) / 10;
+    return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  };
+  el.textContent = w + ' × ' + h + ' 颗  ≈  ' +
+    cm(w, 0.5) + ' × ' + cm(h, 0.5) + ' cm（5mm 豆）  ·  ' +
+    cm(w, 0.26) + ' × ' + cm(h, 0.26) + ' cm（2.6mm 豆）';
+}
+
+// 输入时实时换算，不必等到点「创建图纸」
+['inW', 'inH'].forEach(id => $(id).addEventListener('input', updateSizeCm));
 
 /** 图案变换：镜像与 90° 旋转（旋转会互换宽高） */
 function transform(kind) {
@@ -1804,6 +1828,7 @@ function init() {
   selectColor(0);
   const oc0 = $('optCell'); if (oc0) oc0.disabled = true;
   $('sizeBadge').textContent = state.W + ' × ' + state.H;
+  updateSizeCm();
   syncToggles();
   layout();
   updateStats();
