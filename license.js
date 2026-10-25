@@ -3,11 +3,11 @@
  *
  * 设计要点：
  * 1. 纯 JS 实现 SHA-256 / HMAC，不依赖 Web Crypto，file:// 双击打开也能验签
- * 2. 密钥自带到期日，本地离线校验，无需联网、无服务器
- * 3. 签名覆盖「到期日 + 序列号」，改日期即失效
+ * 2. 密钥只记录「有效天数」，到期日由首次激活当天往后推，因此可以提前批量生成囤货
+ * 3. 签名覆盖「有效天数 + 序列号」，改天数即失效
  * 4. 记录见过的最晚时间，系统时间被调回过去时给出提示
  *
- * 密钥格式：DDU-20261231-0001-7K2M9Q
+ * 密钥格式：DDU-30D-0001-7K2M9Q
  */
 (function () {
   'use strict';
@@ -18,6 +18,7 @@
   var ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
   var LS_LICENSE = 'doudou_license';
   var LS_SEEN = 'doudou_license_seen';
+  var LS_ACTS = 'doudou_license_acts';
   var DAY_MS = 86400000;
 
   // ---------- SHA-256 ----------
@@ -131,9 +132,9 @@
     return new Uint8Array(out);
   }
 
-  function signFor(dueDate, seq) {
+  function signFor(days, seq) {
     var secret = hexToBytes(SECRET_HEX);
-    var payload = utf8Bytes('DDU|' + dueDate + '|' + seq);
+    var payload = utf8Bytes('DDU|' + days + 'D|' + seq);
     var digest = hmacSha256(secret, payload);
     var out = '';
     for (var i = 0; i < 6; i++) out += ALPHABET[digest[i] % 32];
@@ -149,11 +150,17 @@
 
   function parseKey(raw) {
     var s = normalize(raw);
-    // 去掉可能残留的前缀字母 DDU，统一成纯内容再重组
-    var m = s.match(/^DDU(\d{8})(\d{4})([2-9A-HJ-NP-Z]{6})$/);
+    // DDU + 有效天数 + D + 序列号(4) + 签名(6)
+    // 天数后的 D 是分隔符，位数不固定也不会和序列号混淆
+    var m = s.match(/^DDU(\d{1,4})D(\d{4})([2-9A-HJ-NP-Z]{6})$/);
     if (!m) return null;
-    return { due: m[1], seq: m[2], sig: m[3] };
+    var days = parseInt(m[1], 10);
+    if (!(days >= 1 && days <= 3650)) return null;
+    return { days: days, seq: m[2], sig: m[3] };
   }
+
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+  function dateStr(d) { return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()); }
 
   function todayStart() {
     var d = new Date();
@@ -161,36 +168,86 @@
     return d;
   }
 
-  function verifyKey(raw) {
+  function parseDateStr(s) {
+    var y = +s.slice(0, 4), mo = +s.slice(4, 6), da = +s.slice(6, 8);
+    var d = new Date(y, mo - 1, da);
+    if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) return null;
+    return d;
+  }
+
+  // ---------- 首次激活记录：到期日从这里往后推，重复输入不会重置 ----------
+  function readActs() {
+    try {
+      var v = readStore(LS_ACTS);
+      var o = v ? JSON.parse(v) : null;
+      return o && typeof o === 'object' ? o : {};
+    } catch (e) { return {}; }
+  }
+
+  function readActDate(seq) {
+    var a = readActs();
+    return Object.prototype.hasOwnProperty.call(a, seq) ? a[seq] : null;
+  }
+
+  function writeActDate(seq, ds) {
+    var a = readActs();
+    a[seq] = ds;
+    writeStore(LS_ACTS, JSON.stringify(a));
+  }
+
+  // firstAct 首次激活日期（YYYYMMDD），days 有效天数（含激活当天）
+  function computeExpiry(firstAct, days) {
+    var start = parseDateStr(String(firstAct || ''));
+    if (!start) return { expired: true, broken: true, reason: '激活记录损坏，请重新输入密钥' };
+    var last = new Date(start.getTime());
+    last.setDate(last.getDate() + days - 1);
+    var lastDay = dateStr(last);
+    var diff = Math.round((last - todayStart()) / DAY_MS);
+    return {
+      firstAct: firstAct,
+      due: lastDay,
+      daysLeft: diff + 1,
+      expired: diff < 0
+    };
+  }
+
+  // 只校验签名与格式，不涉及时间
+  function verifySignature(raw) {
     if (SECRET_HEX.indexOf('@@') === 0) {
       return { ok: false, reason: '授权模块未正确构建' };
     }
     var p = parseKey(raw);
-    if (!p) return { ok: false, reason: '密钥格式不正确，应为 DDU-20261231-0001-7K2M9Q' };
-
-    var y = +p.due.slice(0, 4);
-    var mo = +p.due.slice(4, 6);
-    var da = +p.due.slice(6, 8);
-    var d = new Date(y, mo - 1, da);
-    if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) {
-      return { ok: false, reason: '密钥中的日期无效' };
-    }
-
-    if (signFor(p.due, p.seq) !== p.sig) {
+    if (!p) return { ok: false, reason: '密钥格式不正确，应为 DDU-30D-0001-7K2M9Q' };
+    if (signFor(p.days, p.seq) !== p.sig) {
       return { ok: false, reason: '密钥无效，请检查是否抄错' };
     }
+    return { ok: true, days: p.days, seq: p.seq };
+  }
 
-    // 到期日当天仍可使用（含当天），所以「剩余天数」要把今天算进去。
-    // 例如 30 天卡当天激活应显示「剩余 30 天」，最后一天显示「剩余 1 天」。
-    var diff = Math.round((d - todayStart()) / DAY_MS);
-    if (diff < 0) {
-      return { ok: false, reason: '这张密钥已于 ' + fmtDue(p.due) + ' 到期', due: p.due, seq: p.seq, expired: true };
+  function verifyKey(raw) {
+    var r = verifySignature(raw);
+    if (!r.ok) return r;
+    // 未激活过时按今天预览，真正激活会在 activate 里落记录
+    var firstAct = readActDate(r.seq) || dateStr(todayStart());
+    var e = computeExpiry(firstAct, r.days);
+    if (e.broken) return { ok: false, reason: e.reason, seq: r.seq };
+    if (e.expired) {
+      return {
+        ok: false, expired: true, seq: r.seq, days: r.days,
+        due: e.due, firstAct: e.firstAct,
+        reason: '这张密钥已于 ' + fmtDue(e.due) + ' 到期'
+      };
     }
-    return { ok: true, due: p.due, seq: p.seq, daysLeft: diff + 1 };
+    return {
+      ok: true, days: r.days, seq: r.seq,
+      due: e.due, firstAct: e.firstAct, daysLeft: e.daysLeft
+    };
   }
 
   function fmtDue(due) {
-    return due.slice(0, 4) + '-' + due.slice(4, 6) + '-' + due.slice(6, 8);
+    var s = String(due || '');
+    if (!/^\d{8}$/.test(s)) return '—';
+    return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
   }
 
   // 内存兜底：部分环境（预览 iframe、隐私模式、Safari 的 file://）会拒绝 localStorage，
@@ -254,20 +311,40 @@
         clockTampered: true
       };
     }
-    return { active: true, due: r.due, daysLeft: r.daysLeft, seq: r.seq };
+    return { active: true, due: r.due, daysLeft: r.daysLeft, seq: r.seq, days: r.days, firstAct: r.firstAct };
   }
 
   function activate(raw) {
-    var r = verifyKey(raw);
+    var r = verifySignature(raw);
     if (!r.ok) return r;
+
+    // 首次激活日期一旦写入就不再改动：同一密钥重复输入、重新激活都不会重置计时
+    var firstAct = readActDate(r.seq);
+    if (!firstAct) {
+      firstAct = dateStr(todayStart());
+      writeActDate(r.seq, firstAct);
+    }
+
+    var e = computeExpiry(firstAct, r.days);
+    if (e.broken) return { ok: false, reason: e.reason };
+    if (e.expired) {
+      return {
+        ok: false, expired: true, seq: r.seq, due: e.due,
+        reason: '这张密钥已于 ' + fmtDue(e.due) + ' 到期'
+      };
+    }
+
     var saved = normalize(raw);
     writeStore(LS_LICENSE, saved);
     // 回读确认：避免出现「提示激活成功、实际没存下来、门关不上」
     var back = readStore(LS_LICENSE);
-    if (!back || !verifyKey(back).ok) {
+    if (!back || !verifySignature(back).ok) {
       return { ok: false, reason: '授权未能保存，请检查浏览器是否禁用了本地存储' };
     }
-    return r;
+    return {
+      ok: true, days: r.days, seq: r.seq,
+      due: e.due, firstAct: e.firstAct, daysLeft: e.daysLeft
+    };
   }
 
   function deactivate() {
@@ -351,7 +428,7 @@
       '  <h3 id="dduLicTitle">激活 doudou UP</h3>',
       '  <p class="ddu-lic-sub">输入购买后收到的密钥。密钥自带有效期，本地校验，全程无需联网。</p>',
       '  <div class="ddu-lic-status" id="dduLicStatus" hidden></div>',
-      '  <input id="dduLicInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-20261231-0001-7K2M9Q" />',
+      '  <input id="dduLicInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-30D-0001-7K2M9Q" />',
       '  <p class="ddu-lic-msg" id="dduLicMsg"></p>',
       '  <div class="ddu-lic-acts">',
       '    <button id="dduLicLogout" class="ddu-lic-logout" hidden>退出授权</button>',
@@ -413,7 +490,7 @@
       '  </div>',
       '  <h2 id="dduGateTitle">激活 doudou UP</h2>',
       '  <p class="ddu-gate-desc">这是付费版，需要密钥才能使用。<br>请输入购买后收到的密钥，本地校验、无需联网。</p>',
-      '  <input id="dduGateInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-20261231-0001-7K2M9Q" />',
+      '  <input id="dduGateInput" type="text" spellcheck="false" autocomplete="off" placeholder="DDU-30D-0001-7K2M9Q" />',
       '  <p class="ddu-gate-msg" id="dduGateMsg"></p>',
       '  <button class="ddu-gate-btn" id="dduGateOk">激活并开始使用</button>',
       '  <p class="ddu-gate-foot">密钥格式：DDU-日期-序号-校验码<br>还没有密钥？请联系作者购买。</p>',
@@ -445,7 +522,7 @@
       refreshButton();
       updateGate();
       if (typeof toast === 'function') {
-        toast('激活成功，有效期至 ' + fmtDue(r.due) + '（剩余 ' + r.daysLeft + ' 天）', '', 3600);
+        toast('激活成功，有效期至 ' + fmtDue(r.due) + '（共 ' + r.days + ' 天，剩余 ' + r.daysLeft + ' 天）', '', 3600);
         if (!persistentStorageOK()) {
           toast('提示：当前环境无法保存授权，关闭页面后需重新输入密钥。建议用本地文件打开。', 'warn', 7000);
         }
@@ -516,6 +593,7 @@
       els.status.hidden = false;
       els.status.innerHTML =
         '当前状态：<b>已激活</b><br>' +
+        '激活日期：' + fmtDue(s.firstAct || '') + '（共 ' + s.days + ' 天）<br>' +
         '有效期至：<b>' + fmtDue(s.due) + '</b>（剩余 ' + s.daysLeft + ' 天）<br>' +
         '密钥序号：' + s.seq;
       els.input.value = '';
@@ -528,13 +606,13 @@
         '原密钥有效期至：<b>' + fmtDue(s.due || '') + '</b><br>' +
         '输入新密钥即可继续使用。';
       els.input.value = '';
-      els.input.placeholder = 'DDU-20261231-0001-7K2M9Q';
+      els.input.placeholder = 'DDU-30D-0001-7K2M9Q';
       els.ok.textContent = '激活';
     } else {
       els.logout.hidden = true;
       els.status.hidden = true;
       els.input.value = '';
-      els.input.placeholder = 'DDU-20261231-0001-7K2M9Q';
+      els.input.placeholder = 'DDU-30D-0001-7K2M9Q';
       els.ok.textContent = '激活';
     }
 
@@ -558,7 +636,7 @@
     if (!normalize(raw)) { setMsg('请先输入密钥', 'err'); return; }
     var r = activate(raw);
     if (!r.ok) { setMsg(r.reason, 'err'); return; }
-    setMsg('激活成功，有效期至 ' + fmtDue(r.due) + '（剩余 ' + r.daysLeft + ' 天）', 'ok');
+    setMsg('激活成功，有效期至 ' + fmtDue(r.due) + '（共 ' + r.days + ' 天，剩余 ' + r.daysLeft + ' 天）', 'ok');
     refreshButton();
     setTimeout(closeDialog, 1200);
   }
