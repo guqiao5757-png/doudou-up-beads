@@ -10,6 +10,16 @@ _oauth_token
 _oauth_state.json
 _publish.js
 
+# ===== 密钥系统（商业机密，绝对不能入库）=====
+# 签发根密钥：泄露等于任何人都能自行生成有效密钥
+tools/.secret
+# 已签发的密钥台账（含订单备注）
+tools/keys.csv
+# 付费版构建产物（含内嵌密钥，不入公开仓库）
+doudou up pro.html
+# 内部运营手册（含定价与发货流程）
+tools/密钥运营手册.md
+
 # 编辑器与系统
 .vscode/
 .idea/

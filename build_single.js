@@ -3,6 +3,11 @@ const path = require('path');
 
 const dir = 'C:/Users/Administrator/WorkBuddy AI/2026-09-01-22-15-41/bead-pattern';
 
+// 构建模式：
+//   默认        -> 开源版（不含任何授权代码，输出 doudou up.html，同步桌面与 docs）
+//   --pro       -> 付费版（内联 license.js 与签发密钥，输出 doudou up pro.html，不同步 docs）
+const isPro = process.argv.includes('--pro');
+
 // 1) 读取像素字体并 base64 内嵌
 const fontB64 = fs.readFileSync(path.join(dir, 'ps2p.woff2')).toString('base64');
 let css = fs.readFileSync(path.join(dir, 'styles.css'), 'utf8');
@@ -24,20 +29,60 @@ html = html.replace(
   '<script>\n' + appjs + '\n</script>'
 );
 
-const out = path.join(dir, 'doudou up.html');
+// 3) 付费版：注入授权模块与签发密钥
+let outName = 'doudou up.html';
+if (isPro) {
+  const secretFile = path.join(dir, 'tools', '.secret');
+  if (!fs.existsSync(secretFile)) {
+    console.error('构建失败：缺少 tools/.secret');
+    console.error('请先运行 node tools/genkey.js --days 30 初始化签发根密钥');
+    process.exit(1);
+  }
+  const secret = fs.readFileSync(secretFile, 'utf8').trim();
+  if (!/^[0-9a-f]{64}$/i.test(secret)) {
+    console.error('构建失败：tools/.secret 格式异常，应为 64 位十六进制字符串');
+    process.exit(1);
+  }
+
+  const licPath = path.join(dir, 'license.js');
+  if (!fs.existsSync(licPath)) {
+    console.error('构建失败：缺少 license.js');
+    process.exit(1);
+  }
+  let lic = fs.readFileSync(licPath, 'utf8');
+  lic = lic.replace('@@LICENSE_SECRET@@', secret);
+  if (lic.indexOf('@@LICENSE_SECRET@@') !== -1) {
+    console.error('构建失败：license.js 中的密钥占位符未被替换');
+    process.exit(1);
+  }
+
+  const closeIdx = html.lastIndexOf('</body>');
+  if (closeIdx === -1) {
+    console.error('构建失败：index.html 中找不到 </body>');
+    process.exit(1);
+  }
+  html = html.slice(0, closeIdx) + '<script>\n' + lic + '\n</script>\n' + html.slice(closeIdx);
+  outName = 'doudou up pro.html';
+}
+
+const out = path.join(dir, outName);
 fs.writeFileSync(out, html);
 
-// 3) 同步到桌面
-const desk = 'C:/Users/Administrator/Desktop/doudou up.html';
-fs.copyFileSync(out, desk);
+// 4) 仅开源版同步到桌面与 GitHub Pages（付费版不外发）
+if (!isPro) {
+  const desk = 'C:/Users/Administrator/Desktop/doudou up.html';
+  fs.copyFileSync(out, desk);
 
-// 4) 同步一份到 docs/index.html，供 GitHub Pages 直接托管单文件版（自包含、零外部请求）
-const docsDir = path.join(dir, 'docs');
-if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir);
-fs.writeFileSync(path.join(docsDir, 'index.html'), html);
+  const docsDir = path.join(dir, 'docs');
+  if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir);
+  fs.writeFileSync(path.join(docsDir, 'index.html'), html);
+}
 
+// 5) 自检
+console.log('mode:', isPro ? 'PRO（付费版）' : 'FREE（开源版）');
+console.log('output:', outName);
 console.log('built bytes:', Buffer.byteLength(html, 'utf8'));
-console.log('has placeholder left:', html.indexOf('@@FONT_B64@@') !== -1);
-// 标题允许带中文副标题，只要 <title> 以 doudou UP 开头即视为正常
+console.log('has placeholder left:', html.indexOf('@@FONT_B64@@') !== -1 || html.indexOf('@@LICENSE_SECRET@@') !== -1);
 console.log('title ok:', /<title>doudou UP[^<]*<\/title>/.test(html));
 console.log('export prefix:', (html.match(/doudou up_/g) || []).length, 'hits');
+console.log('license module:', html.indexOf('DDU_LICENSE') !== -1 ? 'included' : 'absent');
